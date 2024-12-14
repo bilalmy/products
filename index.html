@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
+  <title>Product Management</title>
+</head>
+<body>
+  <h1 id="h1Add">Add Product</h1>
+  <form id="addProductForm">
+    <label for="name">Name:</label>
+    <input type="text" id="name" name="name" required>
+
+    <label for="price">Price:</label>
+    <input type="number" id="price" name="price" required>
+
+    <label for="description">Description:</label>
+    <textarea id="description" name="description" required></textarea>
+
+    <button type="submit" id="btn">Add Product</button>
+  </form>
+
+  <h1>Your Products</h1>
+  <div id="product-list"></div>
+
+  <script>
+    let currentProductId = null;
+
+    async function getProducts() {
+      try {
+        const response = await fetch('http://localhost:3000/api/product/get');
+        const products = await response.json();
+
+        const productList = document.getElementById('product-list');
+        productList.innerHTML = ''; // Clear the list before re-rendering
+
+        products.forEach(product => {
+          const { _id, name, price, description } = product;
+
+          const productItem = document.createElement('div');
+          productItem.innerHTML = `
+            <h3>ID: ${_id}</h3>
+            <p>Name: ${name}</p>
+            <p>Price: ${price}</p>
+            <p>Description: ${description}</p>
+            <button class="delete-button" data-id="${_id}">Delete</button>
+            <button class="edit-button" data-id="${_id}">Edit</button>
+          `;
+
+          productList.appendChild(productItem);
+        });
+
+        attachDeleteHandlers();
+        attachEditHandlers();
+      } catch (error) {
+        console.error('Error fetching products:', error);
+        const productList = document.getElementById('product-list');
+        productList.textContent = 'Error fetching products. Please try again later.';
+      }
+    }
+
+    async function addOrUpdateProduct() {
+      const name = document.getElementById('name').value;
+      const price = document.getElementById('price').value;
+      const description = document.getElementById('description').value;
+
+      const productData = { name, price, description };
+
+      try {
+        const url = currentProductId
+          ? `http://localhost:3000/api/product/update/${currentProductId}`
+          : 'http://localhost:3000/api/product/add';
+
+        const method = currentProductId ? 'PUT' : 'POST';
+
+        const response = await fetch(url, {
+          method,
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(productData)
+        });
+
+        if (response.ok) {
+          clearForm();
+          alert(currentProductId ? 'Product updated successfully!' : 'Product added successfully!');
+          currentProductId = null;
+          document.getElementById('h1Add').innerHTML = 'Add Product';
+          document.getElementById('btn').innerHTML = 'Add Product';
+          await getProducts();
+        } else {
+          alert('Error saving product. Please try again.');
+        }
+      } catch (error) {
+        console.error('Error saving product:', error);
+        alert('Error saving product. Please try again.');
+      }
+    }
+
+    function clearForm() {
+      document.getElementById('name').value = '';
+      document.getElementById('price').value = '';
+      document.getElementById('description').value = '';
+    }
+
+    function attachDeleteHandlers() {
+      const deleteButtons = document.querySelectorAll('.delete-button');
+
+      deleteButtons.forEach(button => {
+        button.addEventListener('click', async () => {
+          const productId = button.dataset.id;
+
+          try {
+            const response = await fetch(`http://localhost:3000/api/product/delete/${productId}`, {
+              method: 'DELETE'
+            });
+
+            if (response.ok) {
+              alert('Product deleted successfully!');
+              await getProducts();
+            } else {
+              alert('Error deleting product. Please try again.');
+            }
+          } catch (error) {
+            console.error('Error deleting product:', error);
+            alert('Error deleting product. Please try again.');
+          }
+        });
+      });
+    }
+
+    function attachEditHandlers() {
+      const editButtons = document.querySelectorAll('.edit-button');
+
+      editButtons.forEach(button => {
+        button.addEventListener('click', async () => {
+          const productId = button.dataset.id;
+
+          try {
+            const response = await fetch(`http://localhost:3000/api/product/get/${productId}`);
+            const product = await response.json();
+
+            document.getElementById('name').value = product.name;
+            document.getElementById('price').value = product.price;
+            document.getElementById('description').value = product.description;
+
+            document.getElementById('h1Add').innerHTML = 'Update Product';
+            document.getElementById('btn').innerHTML = 'Update Product';
+
+            currentProductId = productId;
+          } catch (error) {
+            console.error('Error fetching product:', error);
+            alert('Error fetching product. Please try again.');
+          }
+        });
+      });
+    }
+
+    getProducts();
+
+    const addProductForm = document.getElementById('addProductForm');
+    addProductForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      addOrUpdateProduct();
+    });
+  </script>
+</body>
+</html>
